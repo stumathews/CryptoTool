@@ -42,7 +42,7 @@ void PrintUsage(const int totalArgs, const std::wstring command = L"")
 	          << "Provider: Perform operations on a specific provider" << std::endl
 		      << "Providers: Perform operations on all providers" << std::endl
 		      << "Key: Perform operations on a specified key" << std::endl
-		      << "Certificate: Perform certificate operations" << std::endl << std::endl;
+		      << "CertificateAuthority: Perform certificate authority operations" << std::endl << std::endl;
 		return;
 	}
 
@@ -66,6 +66,9 @@ void PrintUsage(const int totalArgs, const std::wstring command = L"")
 	{
 		std::cout << "CryptoTool.exe CertificateAuthority -GetDefault" << std::endl;
 		std::cout << "CryptoTool.exe CertificateAuthority -Select" << std::endl;
+		std::cout << "CryptoTool.exe CertificateAuthority -GetField <FieldName>" << std::endl 
+		          << "\teg fields: CommonName|Config|Flags|Server etc. " << std::endl;
+		std::cout << "CryptoTool.exe CertificateAuthority -EnrollFromPublicKey <TemplateName> <outputfile> <SigningCertName>" << std::endl;
 
 	}
 	else
@@ -242,13 +245,7 @@ DWORD __cdecl wmain(_In_ int argc, _In_reads_(argc)LPWSTR  argv[])
 	}
 	else if (IsEqual(command, L"CertificateAuthority"))
 	{
-		const auto templateName = L"User";
-		const auto fileOut = L"Response.out";
-		const auto signingTemplateName = L"User";  
-		//EnrollFromPublicKey::Perform(templateName, fileOut, signingTemplateName);
-
 		
-
 		// CryptoTool.exe CertificateAuthority -GetDefault
 
 		if(!HasAtLeastNumArgs(2, totalArgs, command)) return -1;
@@ -281,6 +278,49 @@ DWORD __cdecl wmain(_In_ int argc, _In_reads_(argc)LPWSTR  argv[])
 					SysFreeString(bstrConfig);
 				}
 			}
+		}
+
+		// CryptoTool.exe CertificateAuthority -GetField <FieldName>
+		if(IsEqual(operation, L"-GetField"))
+		{
+			auto fieldNameArg = SysAllocString(cmdArgs[3].c_str());
+			BSTR  value = nullptr;
+
+			if(CaConfig::GetCaField(&fieldNameArg, &value) == S_OK)
+			{
+				const std::string strConfig(_bstr_t(value, true));
+				std::cout << strConfig << std::endl;
+			    if (value) 
+				{
+					SysFreeString(value);
+				}
+			}
+		}
+
+		// CryptoTool.exe CertificateAuthority -EnrollFromPublicKey <TemplateName> <FileOut> <SignCertName>
+		if(IsEqual(operation, L"-EnrollFromPublicKey"))
+		{
+			EnrollFromPublicKey enrollFromPublicKey;
+			const auto templateName = cmdArgs[3].c_str();
+			const auto fileOut = cmdArgs[4].c_str();
+			const auto signingTemplateName = cmdArgs[5].c_str();  
+			
+			if(enrollFromPublicKey.Perform(templateName, fileOut, signingTemplateName) == S_OK)
+			{
+				std::wcout << "Successfully written to " << fileOut << std::endl;
+			}
+			
+		}
+
+		// CryptoTool.exe CertificateAuthority -RetrievePending <RequestId> <strConfig>
+		if(IsEqual(operation, L"-RetrievePending"))
+		{
+			const auto requestId = std::stol(cmdArgs[3]);
+			const auto strConfig = const_cast<wchar_t*>(cmdArgs[4].c_str());
+			std::wcout << "Using server: " << strConfig << std::endl;
+			EnrollFromPublicKey enrollFromPublicKey;
+			enrollFromPublicKey.RetrievePending(requestId, strConfig);
+			
 		}
 
 		return 0; // finished

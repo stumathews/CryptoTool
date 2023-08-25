@@ -11,5 +11,6 @@ class CaConfig
 {
 public:
 	static HRESULT GetCaConfig(BSTR* bstrConfig, LONG flags = CC_DEFAULTCONFIG);
+	static HRESULT GetCaField(BSTR* bstrFieldName, BSTR* bstrFieldValue);
 };
 

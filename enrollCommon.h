@@ -15,6 +15,7 @@
 
 #include <iostream>
 #include <wincrypt.h>
+#include "ErrorManager.h"
 
 #define wcBOM               (WCHAR) 0xfeff
 #define wcBOMBIGENDIAN      (WCHAR) 0xfffe
@@ -27,6 +28,7 @@
     if (S_OK != (hr)) \
     { \
         std::cout << L"Error in " << pszMessage << "," << hr << std::endl; \
+        ErrorManager::PrintErrorCodeMessage(hr); \
         goto label; \
     } \
     }
@@ -34,6 +36,7 @@
 #define _JumpError(hr, label, pszMessage) \
     { \
     std::cout << L"Error in " << pszMessage << "," << hr << std::endl; \
+    ErrorManager::PrintErrorCodeMessage(hr); \
     goto label; \
     }
 
@@ -42,12 +45,14 @@
     if (S_OK != (hr)) \
     { \
         std::cout << L"Error in " << pszMessage << "," << hr << std::endl; \
+        ErrorManager::PrintErrorCodeMessage(hr); \
     } \
     }
 
 #define _PrintError(hr, pszMessage) \
     { \
         std::cout << L"Error in " << pszMessage << "," << hr << std::endl; \
+        ErrorManager::PrintErrorCodeMessage(hr); \
     }
 
 

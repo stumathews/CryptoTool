@@ -46,6 +46,4 @@ std::wstring Common::GetProperty(const NCRYPT_HANDLE object, const std::wstring&
 	}
 
 	return std::wstring(reinterpret_cast<wchar_t*>(pBuffer), sizeBytes);
-	
-	return {};
 }

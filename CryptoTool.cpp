@@ -2,16 +2,22 @@
 //
 #pragma comment(lib, "crypt32.lib")
 #pragma comment(lib, "Ncrypt.lib")
+#pragma comment(lib,"comsuppw.lib")
 
 #include <vector>
-#include <windows.h>
+#include <Windows.h>
 
 #include "Provider.h"
 #include "Providers.h"
 #include <iostream>
 #include <string>
 #include <cwctype>
+
+#include "CaConfig.h"
+#include "EnrollFromPublicKey.h"
 #include "Key.h"
+#include <comutil.h>
+
 
 bool IsEqual(const TCHAR* one, const TCHAR* two)
 {
@@ -35,7 +41,8 @@ void PrintUsage(const int totalArgs, const std::wstring command = L"")
 		      << "Commands: " << std::endl << std::endl
 	          << "Provider: Perform operations on a specific provider" << std::endl
 		      << "Providers: Perform operations on all providers" << std::endl
-		      << "Key: Perform operations on a specified key" << std::endl << std::endl;
+		      << "Key: Perform operations on a specified key" << std::endl
+		      << "Certificate: Perform certificate operations" << std::endl << std::endl;
 		return;
 	}
 
@@ -55,6 +62,12 @@ void PrintUsage(const int totalArgs, const std::wstring command = L"")
 	{
 		std::cout << "CryptoTool.exe Key -Name <KeyName> -ProviderName <ProviderName> -GetProperty <NCRYPT_NAME_PROPERTY>" << std::endl;
 	}
+	else if(IsEqual(command.c_str(), L"CertificateAuthority"))
+	{
+		std::cout << "CryptoTool.exe CertificateAuthority -GetDefault" << std::endl;
+		std::cout << "CryptoTool.exe CertificateAuthority -Select" << std::endl;
+
+	}
 	else
 	{
 		std::wcout << L"Unknown command: " << command.c_str() << std::endl;
@@ -71,9 +84,6 @@ bool HasAtLeastNumArgs(const int requiredNumArgs, const int totalArgs, const std
 	PrintUsage(totalArgs, command);
 	return false;
 }
-
-
-
 
 DWORD __cdecl wmain(_In_ int argc, _In_reads_(argc)LPWSTR  argv[])
 {
@@ -229,6 +239,52 @@ DWORD __cdecl wmain(_In_ int argc, _In_reads_(argc)LPWSTR  argv[])
 			std::wcout << key.GetProperty(propertyName, 0, 0, false) << std::endl;
 			return 0;
 		}
+	}
+	else if (IsEqual(command, L"CertificateAuthority"))
+	{
+		const auto templateName = L"User";
+		const auto fileOut = L"Response.out";
+		const auto signingTemplateName = L"User";  
+		//EnrollFromPublicKey::Perform(templateName, fileOut, signingTemplateName);
+
+		
+
+		// CryptoTool.exe CertificateAuthority -GetDefault
+
+		if(!HasAtLeastNumArgs(2, totalArgs, command)) return -1;
+
+		const auto operation = cmdArgs[2].c_str();
+		if(IsEqual(operation, L"-GetDefault"))
+		{
+			BSTR  bstrConfig = nullptr; //Contains CA configuration name
+			if(CaConfig::GetCaConfig(&bstrConfig, CC_DEFAULTCONFIG) == S_OK)
+			{
+				const std::string strConfig(_bstr_t(bstrConfig, true));
+				std::cout << strConfig << std::endl;
+			    if (bstrConfig) 
+				{
+					SysFreeString(bstrConfig);
+				}
+			}
+		}
+
+		// CryptoTool.exe CertificateAuthority -Select
+		if(IsEqual(operation, L"-Select"))
+		{
+			BSTR  bstrConfig = nullptr; //Contains CA configuration name
+			if(CaConfig::GetCaConfig(&bstrConfig,CC_UIPICKCONFIG) == S_OK)
+			{
+				const std::string strConfig(_bstr_t(bstrConfig, true));
+				std::cout << strConfig << std::endl;
+			    if (bstrConfig) 
+				{
+					SysFreeString(bstrConfig);
+				}
+			}
+		}
+
+		return 0; // finished
+
 	}
 
 	// If not Finished, show help/usage

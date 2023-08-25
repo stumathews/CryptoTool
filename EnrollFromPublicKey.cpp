@@ -25,34 +25,66 @@
 #include "ErrorManager.h"
 #pragma comment(lib,"comsuppw.lib")
 
+
+HRESULT EnrollFromPublicKey::RetrievePending(LONG requestId, const BSTR strConfig)
+{
+	LONG disposition;
+
+	Initialize();
+
+	InitializeICertRequest2();
+
+	if((hr = pCertRequest2->RetrievePending(requestId, strConfig, &disposition)) == S_OK)
+	{
+		if(disposition == CR_DISP_ISSUED)
+		{
+			std::cout << "Getting certificate..." << std::endl;
+			BSTR  bstrCert = NULL;
+			if(pCertRequest2->GetCertificate(CR_OUT_BASE64, &bstrCert) == S_OK)
+			{
+				const std::string certificate(_bstr_t(bstrCert, true));
+				std::cout << certificate << std::endl;
+				SysFreeString(bstrCert);
+			}
+			else
+			{
+				std::cout << "Failed to get certificate" << std::endl;
+			}
+
+			
+		}
+		else
+		{
+			std::cout << "Not Issued." << std::endl;
+			/*LONG status;
+			pCertRequest2->GetLastStatus(&status);
+			hr = pCertRequest2->GetDispositionMessage(&strDisposition);*/
+			
+		}
+	}
+	else
+	{
+		std::cout << "Failed calling RetrievePending..." << std::endl;
+		ErrorManager::PrintErrorCodeMessage(hr);
+	}
+	return hr;
+}
+
+EnrollFromPublicKey::~EnrollFromPublicKey()
+{
+	Uninitialize();
+}
+
 HRESULT EnrollFromPublicKey::Perform(PCWSTR pwszTemplateName, PCWSTR pwszFileOut, PCWSTR pwszSigningTemplateName)
 {
-	HRESULT hr;
-	bool fCoInit;
-	CERT_CONTEXT const* pCert = nullptr;
-	ICertConfig* pCertConfig = nullptr;
-	IX509CertificateRequestPkcs10* pPkcs10 = nullptr;
-	IX509CertificateRequestCmc* pCmc = nullptr;
-	IX509PrivateKey* pKey = nullptr;
-	IX509PublicKey* pPublicKey = nullptr;
-	ISignerCertificate* pSignerCertificate = nullptr;
-	ISignerCertificates* pSignerCertificates = nullptr;
-	ICertRequest2* pCertRequest2 = nullptr;
-	BSTR strTemplateName = nullptr;
-	BSTR strCAConfig = nullptr;
-	BSTR strRequest = nullptr;
-	BSTR strRACert = nullptr;
-	BSTR strDisposition = nullptr;
-	VARIANT varFullResponse;
-	LONG pDisposition;
 
-	std::cout << "[CoInitializeEx]" << std::endl;
+	std::wcout << "Requesting a cert using template: " << pwszTemplateName
+	<< " will try to write it out to: "
+	<< pwszFileOut << " and will sign with cert called: "
+	<< pwszSigningTemplateName << std::endl;
 
-	// CoInitializeEx
-	hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-	_JumpIfError(hr, error, "CoInitializeEx");
-	fCoInit = true;
-    
+	Initialize();
+   
 	/* Get the public key */
 
 	std::cout << "Create IX509PrivateKey" << std::endl;
@@ -66,12 +98,17 @@ HRESULT EnrollFromPublicKey::Perform(PCWSTR pwszTemplateName, PCWSTR pwszFileOut
 	_JumpIfError(hr, error, "CoCreateInstance");
 
 	std::cout << "Create the key" << std::endl;
+
+	// Make sure the key is 2048 bits long
+	pKey->put_Length(2048);
+
 	// Create the key
 	hr = pKey->Create();
 	_JumpIfError(hr, error, "Create");
 
 	std::cout << "Export the public key" << std::endl;
 	// Export the public key
+	
 	hr = pKey->ExportPublicKey(&pPublicKey);
 	_JumpIfError(hr, error, "ExportPublicKey");
 	
@@ -126,10 +163,12 @@ HRESULT EnrollFromPublicKey::Perform(PCWSTR pwszTemplateName, PCWSTR pwszFileOut
 	if (S_OK != hr) // Cert not found
 	{
 		// Enroll a signing cert first
+		std::cout << "Enroll a signing cert first" << std::endl;
 		hr = enrollCertByTemplate(pwszSigningTemplateName);
 		_JumpIfError(hr, error, "enrollCertByTemplate");    
  
 		// Search again
+		std::cout << "Search again" << std::endl;
 		hr = findCertByKeyUsage(CERT_DIGITAL_SIGNATURE_KEY_USAGE, &pCert);
 		_JumpIfError(hr, error, "findCertByKeyUsage");  
 	}
@@ -201,13 +240,10 @@ HRESULT EnrollFromPublicKey::Perform(PCWSTR pwszTemplateName, PCWSTR pwszFileOut
 	hr = pCertConfig->GetConfig(CC_UIPICKCONFIG, &strCAConfig);
 	_JumpIfError(hr, error, "GetConfig");
 
+	std::cout << "Using strCaConfig: " << std::string(_bstr_t(strCAConfig, true)) << std::endl;
+
 	// Initialize ICertRequest2
-	hr = CoCreateInstance(
-		__uuidof(CCertRequest),
-		nullptr,
-		CLSCTX_INPROC_SERVER,
-		__uuidof(ICertRequest2),
-		(void**)&pCertRequest2);
+	hr = InitializeICertRequest2();	
 	_JumpIfError(hr, error, "CoCreateInstance");
 
 	std::cout << "Submit the request" << std::endl;
@@ -217,18 +253,26 @@ HRESULT EnrollFromPublicKey::Perform(PCWSTR pwszTemplateName, PCWSTR pwszFileOut
 		strRequest,
 		nullptr, 
 		strCAConfig,
-		&pDisposition);   
+		&pDisposition);
 	_JumpIfError(hr, error, "Submit");
 
 	// Check the submission status
 	if (pDisposition != CR_DISP_ISSUED) // Not enrolled
 	{
 		hr = pCertRequest2->GetDispositionMessage(&strDisposition);
+		
 		_JumpIfError(hr, error, "GetDispositionMessage");
         
 		if (pDisposition == CR_DISP_UNDER_SUBMISSION) // Pending
 		{
 			wprintf(L"The submission is pending: %ws\n", strDisposition);
+
+			// Get the requestId
+			LONG requestId = 0;
+			pCertRequest2->GetRequestId(&requestId);
+
+			std::cout << "RequstId: " << requestId << std::endl;
+
 			_JumpError(hr, error, "Submit");
 		} 
 		else // Failed
@@ -239,7 +283,7 @@ HRESULT EnrollFromPublicKey::Perform(PCWSTR pwszTemplateName, PCWSTR pwszFileOut
 		}
 	}
 
-		std::cout << "Get the response, and save it to a file" << std::endl;
+	std::cout << "Get the response, and save it to a file" << std::endl;
 	/* Get the response, and save it to a file */
 
 	// Initialize varFullResponse
@@ -265,6 +309,34 @@ HRESULT EnrollFromPublicKey::Perform(PCWSTR pwszTemplateName, PCWSTR pwszFileOut
 	_JumpIfError(hr, error, "EncodeToFileW");
 
 error:
+	return hr;
+}
+
+HRESULT EnrollFromPublicKey::InitializeICertRequest2()
+{
+	const auto result = CoCreateInstance(
+		__uuidof(CCertRequest),
+		nullptr,
+		CLSCTX_INPROC_SERVER,
+		__uuidof(ICertRequest2),
+		(void**)&pCertRequest2);
+	return result;
+}
+
+
+HRESULT EnrollFromPublicKey::Initialize()
+{
+	std::cout << "[CoInitializeEx]" << std::endl;
+	// CoInitializeEx
+	const auto result = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+	
+	fCoInit = true;
+	return result;
+}
+
+
+void EnrollFromPublicKey::Uninitialize()
+{
 	SysFreeString(strTemplateName);
 	SysFreeString(strCAConfig);
 	SysFreeString(strRequest);
@@ -280,48 +352,6 @@ error:
 	if (nullptr != pSignerCertificates) pSignerCertificates->Release();
 	if (nullptr != pCert) CertFreeCertificateContext(pCert);
 	if (fCoInit) CoUninitialize();
-	return hr;
 }
 
-//HRESULT __cdecl not_wmain(__in int argc, __in_ecount(argc) wchar_t *argv[])
-//{
-//
-//    HRESULT hr = S_OK;
-//    bool fCoInit = false;
-//    PCWSTR pwszTemplateName;
-//    PCWSTR pwszFileOut;
-//    PCWSTR pwszSigningTemplateName = L"User";    
-//    CERT_CONTEXT const *pCert = NULL;
-//    ICertConfig* pCertConfig = NULL;
-//    IX509CertificateRequestPkcs10* pPkcs10 = NULL;
-//    IX509CertificateRequestCmc* pCmc = NULL;
-//    IX509PrivateKey* pKey = NULL;
-//    IX509PublicKey* pPublicKey = NULL;
-//    ISignerCertificate* pSignerCertificate = NULL;
-//    ISignerCertificates* pSignerCertificates = NULL;
-//    ICertRequest2* pCertRequest2 = NULL;
-//    BSTR strTemplateName = NULL;
-//    BSTR strCAConfig = NULL;
-//    BSTR strRequest = NULL;
-//    BSTR strRACert = NULL;
-//    BSTR strDisposition = NULL;
-//    VARIANT varFullResponse;
-//    LONG pDisposition = 0;
-//
-//    // Process command line arguments
-//    if (argc !=  3 && argc !=  4) {
-//        Usage();
-//        hr = E_INVALIDARG;
-//        _JumpError(hr, error, "invalid arg");
-//    }
-//    else
-//    {
-//        pwszTemplateName = argv[1];
-//        pwszFileOut = argv[2];
-//        if (argc == 4)
-//            pwszSigningTemplateName = argv[3];
-//    }
-//
-//    return EnrollFromPublicKey(pwszTemplateName, pwszFileOut, pwszSigningTemplateName);
-//}
-//
+

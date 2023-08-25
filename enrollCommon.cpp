@@ -324,7 +324,15 @@ findCertByKeyUsage(
     if (fMatch)
     {
         *ppCert = pCert;
-        hr = S_OK;
+
+    	const auto size = 100;
+        auto name = new CHAR(size);
+        CertNameToStrA(pCert->dwCertEncodingType, &pCert->pCertInfo->Subject,CERT_SIMPLE_NAME_STR, name, size );
+        std::cout << "Match: Subject: " << name << std::endl;
+        CertNameToStrA(pCert->dwCertEncodingType, &pCert->pCertInfo->Issuer,CERT_SIMPLE_NAME_STR, name, size );
+        std::cout << "Match: Issuer: " << name << std::endl;
+        std::cout << "Public key size (Bits): " << pCert->pCertInfo->SubjectPublicKeyInfo.PublicKey.cbData * 8 << std::endl;
+    	hr = S_OK;
     }
     else
         hr = CRYPT_E_NOT_FOUND;

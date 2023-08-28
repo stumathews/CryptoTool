@@ -5,6 +5,8 @@
 #include <certcli.h>
 #include <wincrypt.h>
 #include "enrollCommon.h"
+#include "PrivateKey.h"
+#include "Either.h"
 
 class EnrollFromPublicKey
 {
@@ -16,6 +18,8 @@ private:
 	IX509CertificateRequestPkcs10* pPkcs10 = nullptr;
 	IX509CertificateRequestCmc* pCmc = nullptr;
 	IX509PrivateKey* pKey = nullptr;
+	PrivateKey privateKeyFactory;
+	std::string keyLengthString;
 	IX509PublicKey* pPublicKey = nullptr;
 	ISignerCertificate* pSignerCertificate = nullptr;
 	ISignerCertificates* pSignerCertificates = nullptr;

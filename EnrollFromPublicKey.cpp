@@ -21,8 +21,10 @@
 #include "EnrollFromPublicKey.h"
 #include <iostream>
 #include <comutil.h>
+#include <string>
 #include <winerror.h>
 #include "ErrorManager.h"
+#include "PrivateKey.h"
 #pragma comment(lib,"comsuppw.lib")
 
 
@@ -79,8 +81,8 @@ HRESULT EnrollFromPublicKey::Perform(PCWSTR pwszTemplateName, PCWSTR pwszFileOut
 {
 
 	std::wcout << "Requesting a cert using template: " << pwszTemplateName
-	<< " will try to write it out to: "
-	<< pwszFileOut << " and will sign with cert called: "
+	<< "\n will try to write it out to: "
+	<< pwszFileOut << " \nand will sign with cert called: "
 	<< pwszSigningTemplateName << std::endl;
 
 	Initialize();
@@ -88,23 +90,25 @@ HRESULT EnrollFromPublicKey::Perform(PCWSTR pwszTemplateName, PCWSTR pwszFileOut
 	/* Get the public key */
 
 	std::cout << "Create IX509PrivateKey" << std::endl;
-	// Create IX509PrivateKey
-	hr = CoCreateInstance(
-		__uuidof(CX509PrivateKey),
-		nullptr,       // pUnkOuter
-		CLSCTX_INPROC_SERVER,
-		__uuidof(IX509PrivateKey),
-		(void **) &pKey);
+
+	privateKeyFactory.Initialize();
+	
 	_JumpIfError(hr, error, "CoCreateInstance");
 
 	std::cout << "Create the key" << std::endl;
 
-	// Make sure the key is 2048 bits long
-	pKey->put_Length(2048);
+	privateKeyFactory.Create(2048);
 
-	// Create the key
-	hr = pKey->Create();
 	_JumpIfError(hr, error, "Create");
+	
+	keyLengthString = privateKeyFactory.GetLength().Match(
+		[](long error) {return  std::string("[Error fetching length]"); },
+		[](std::string inLength) {return inLength;});
+
+	std::cout << "Key length is: " << keyLengthString << std::endl;
+
+
+	std::cout << "Private key using algorithm: " << privateKeyFactory.GetAlgorithmName() << std::endl;
 
 	std::cout << "Export the public key" << std::endl;
 	// Export the public key
@@ -343,7 +347,9 @@ void EnrollFromPublicKey::Uninitialize()
 	SysFreeString(strRACert);
 	SysFreeString(strDisposition);
 	VariantClear(&varFullResponse);
-	if (nullptr != pKey) pKey->Release();
+	
+	privateKeyFactory.Uninitialize();
+
 	if (nullptr != pPublicKey) pPublicKey->Release();
 	if (nullptr != pPkcs10) pPkcs10->Release();
 	if (nullptr != pCmc) pCmc->Release();

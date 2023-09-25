@@ -23,6 +23,7 @@
 #include <certsrv.h>
 #include <iostream>
 #include <comutil.h>
+#include <fstream>
 #include <string>
 #include <winerror.h>
 
@@ -78,9 +79,9 @@ HRESULT EnrollFromPublicKey::Perform(PCWSTR pwszTemplateName, PCWSTR pwszFileOut
 
 	std::cout << "Export the public key" << std::endl;
 	// Export the public key
-	//hr = privateKeyFactory.ExportPublicKey(&pPublicKey);
+	hr = privateKeyFactory.ExportPublicKey(&pPublicKey);
 	
-	hr = pKey->ExportPublicKey(&pPublicKey);
+	//hr = pKey->ExportPublicKey(&pPublicKey);
 	_JumpIfError(hr, error, "ExportPublicKey");
 	
 	std::cout << "Intilialize the CMC request from the public key" << std::endl;
@@ -130,9 +131,16 @@ HRESULT EnrollFromPublicKey::Perform(PCWSTR pwszTemplateName, PCWSTR pwszFileOut
 	/* Sign the CMC request with a signing cert */
 
 	// Find a signing cert
-	hr = findCertByKeyUsage(CERT_DIGITAL_SIGNATURE_KEY_USAGE, &pCert);
+	hr = findCertByTemplate(pwszSigningTemplateName, &pCert);
+	if (S_OK != hr)
+	{
+		std::cout << "Could not find a certificate by that tempalte in my store..." << std::endl;
+		hr = findCertByKeyUsage(CERT_DIGITAL_SIGNATURE_KEY_USAGE, &pCert);
+	}
+
 	if (S_OK != hr) // Cert not found
 	{
+		std::cout << "Could not find any CERT_DIGITAL_SIGNATURE_KEY_USAG certs..." << std::endl;
 		// Enroll a signing cert first
 		std::cout << "Enroll a signing cert first" << std::endl;
 		hr = enrollCertByTemplate(pwszSigningTemplateName);
@@ -143,7 +151,7 @@ HRESULT EnrollFromPublicKey::Perform(PCWSTR pwszTemplateName, PCWSTR pwszFileOut
 		hr = findCertByKeyUsage(CERT_DIGITAL_SIGNATURE_KEY_USAGE, &pCert);
 		_JumpIfError(hr, error, "findCertByKeyUsage");  
 	}
-
+	
 	std::cout << "Verify the certificate chain" << std::endl;
 	// Verify the certificate chain
 	hr = verifyCertContext(pCert, nullptr);
@@ -308,10 +316,32 @@ HRESULT EnrollFromPublicKey::RetrievePending(const LONG requestId, const BSTR st
 		{
 			std::cout << "Getting certificate..." << std::endl;
 			BSTR  bstrCert = NULL;
-			if(pCertRequest2->GetCertificate(CR_OUT_BASE64, &bstrCert) == S_OK)
+			if(pCertRequest2->GetCertificate(CR_OUT_BASE64HEADER, &bstrCert) == S_OK)
 			{
 				const std::string certificate(_bstr_t(bstrCert, true));
-				std::cout << certificate << std::endl;
+				
+				auto fileName =  L"base64x509.cer";
+				// open the file
+				HANDLE hUfile = CreateFile(fileName,
+                               GENERIC_WRITE,
+                               0,
+                               NULL,
+                               CREATE_ALWAYS,
+                               FILE_ATTRIBUTE_NORMAL,
+                               NULL );
+				DWORD dwBytes = 0;
+				const DWORD dwLen = ::SysStringLen( bstrCert ) * 2;
+
+				if(WriteFile( hUfile,
+		                        bstrCert,
+		                        dwLen,
+		                        &dwBytes,
+		                        NULL ))
+				{
+					std::wcout << "Saved to " << fileName << std::endl;
+				}
+
+
 				SysFreeString(bstrCert);
 			}
 			else

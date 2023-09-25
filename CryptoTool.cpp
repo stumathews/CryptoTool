@@ -71,6 +71,8 @@ void PrintUsage(const int totalArgs, const std::wstring command = L"")
 		std::cout << "CryptoTool.exe CertificateAuthority -GetField <FieldName>" << std::endl 
 		          << "\teg fields: CommonName|Config|Flags|Server etc. " << std::endl;
 		std::cout << "CryptoTool.exe CertificateAuthority -EnrollFromPublicKey <TemplateName> <outputfile> <SigningCertName>" << std::endl;
+		std::cout << "eg: CryptoTool.exe CertificateAuthority -EnrollFromPublicKey User out.file User" << std::endl;
+		std::cout << "CryptoTool.exe CertificateAuthority -RetrievePending <RequestId> <strConfig>" << std::endl;
 		std::cout << "CryptoTool.exe CertificateAuthority -EnrollOnBehalfOf <Template> <Requester> <FileOut> <Password> <EATemplate>" << std::endl;
 
 	}

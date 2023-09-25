@@ -19,7 +19,7 @@ void ErrorManager::PrintErrorCodeMessage(DWORD dwErrorCode)
         (LPTSTR) &lpMsgBuf,
         0, NULL );
 
-    // Display the error message and exit the process
+    // Display the error message
 
     lpDisplayBuf = (LPVOID)LocalAlloc(LMEM_ZEROINIT, 
         (lstrlen((LPCTSTR)lpMsgBuf) + 40) * sizeof(TCHAR));

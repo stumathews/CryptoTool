@@ -1,12 +1,8 @@
 #pragma once
-#include <stdio.h>
 #include <certenroll.h>
-#include <certsrv.h>
 #include <certcli.h>
 #include <wincrypt.h>
-#include "enrollCommon.h"
 #include "PrivateKey.h"
-#include "Either.h"
 
 class EnrollFromPublicKey
 {

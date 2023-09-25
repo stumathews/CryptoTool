@@ -18,6 +18,8 @@
 #include "Key.h"
 #include <comutil.h>
 
+#include "EnrollOnBehalfOf.h"
+
 
 bool IsEqual(const TCHAR* one, const TCHAR* two)
 {
@@ -69,6 +71,7 @@ void PrintUsage(const int totalArgs, const std::wstring command = L"")
 		std::cout << "CryptoTool.exe CertificateAuthority -GetField <FieldName>" << std::endl 
 		          << "\teg fields: CommonName|Config|Flags|Server etc. " << std::endl;
 		std::cout << "CryptoTool.exe CertificateAuthority -EnrollFromPublicKey <TemplateName> <outputfile> <SigningCertName>" << std::endl;
+		std::cout << "CryptoTool.exe CertificateAuthority -EnrollOnBehalfOf <Template> <Requester> <FileOut> <Password> <EATemplate>" << std::endl;
 
 	}
 	else
@@ -321,6 +324,21 @@ DWORD __cdecl wmain(_In_ int argc, _In_reads_(argc)LPWSTR  argv[])
 			EnrollFromPublicKey enrollFromPublicKey;
 			enrollFromPublicKey.RetrievePending(requestId, strConfig);
 			
+		}
+
+		// CryptoTool.exe CertificateAuthority -EnrollOnBehalfOf <Template> <Requester> <FileOut> <Password> <EATemplate>
+		
+		if(IsEqual(operation, L"-EnrollOnBehalfOf"))
+		{
+			const auto templateName = cmdArgs[3];
+			const auto requester = cmdArgs[4];
+			const auto fileOut = cmdArgs[5];
+			const auto password = cmdArgs[6];
+			const auto eaTemplate = cmdArgs[7];
+
+			EnrollOnBehalfOf eobo;
+			eobo.Initialize();
+			eobo.Perform(templateName.c_str(), requester.c_str(), fileOut.c_str(), password.c_str(), eaTemplate.c_str());
 		}
 
 		return 0; // finished

@@ -3,6 +3,7 @@
 #include <comutil.h>
 #include <iostream>
 #include <string>
+#include "ErrorManager.h"
 
 HRESULT PrivateKey::Initialize()
 {
@@ -38,6 +39,12 @@ Either<HRESULT, std::string> PrivateKey::GetLength()
 	}
 	return hr;
 	
+}
+
+HRESULT PrivateKey::ExportPublicKey(IX509PublicKey** pPublicKey)
+{
+	hr = pKey->ExportPublicKey(pPublicKey);
+	return hr;
 }
 
 std::string PrivateKey::GetAlgorithmName() const

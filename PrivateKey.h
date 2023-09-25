@@ -11,6 +11,7 @@ public:
 	HRESULT Create(const LONG keyLength = 2048);
 	std::string GetAlgorithmName() const;
 	Either<HRESULT, std::string> GetLength();
+	HRESULT ExportPublicKey(IX509PublicKey** pPublicKey);
 private:
 	IX509PrivateKey* pKey = nullptr;
 	HRESULT hr = 0;

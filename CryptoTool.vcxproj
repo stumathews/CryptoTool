@@ -128,11 +128,13 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="CaConfig.cpp" />
+    <ClCompile Include="CmcCertificateRequest.cpp" />
     <ClCompile Include="Common.cpp" />
     <ClCompile Include="CryptoTool.cpp" />
     <ClCompile Include="Either.cpp" />
     <ClCompile Include="enrollCommon.cpp" />
     <ClCompile Include="EnrollFromPublicKey.cpp" />
+    <ClCompile Include="EnrollOnBehalfOf.cpp" />
     <ClCompile Include="ErrorManager.cpp" />
     <ClCompile Include="Key.cpp" />
     <ClCompile Include="PrivateKey.cpp" />
@@ -141,10 +143,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CaConfig.h" />
+    <ClInclude Include="CmcCertificateRequest.h" />
     <ClInclude Include="Common.h" />
     <ClInclude Include="Either.h" />
     <ClInclude Include="enrollCommon.h" />
     <ClInclude Include="EnrollFromPublicKey.h" />
+    <ClInclude Include="EnrollOnBehalfOf.h" />
     <ClInclude Include="ErrorManager.h" />
     <ClInclude Include="Key.h" />
     <ClInclude Include="PrivateKey.h" />

@@ -48,6 +48,12 @@
     <ClCompile Include="Either.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="CmcCertificateRequest.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="EnrollOnBehalfOf.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Providers.h">
@@ -78,6 +84,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Either.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CmcCertificateRequest.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="EnrollOnBehalfOf.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

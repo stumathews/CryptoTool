@@ -19,63 +19,30 @@
 
 
 #include "EnrollFromPublicKey.h"
+
+#include <certsrv.h>
 #include <iostream>
 #include <comutil.h>
 #include <string>
 #include <winerror.h>
+
+#include "enrollCommon.h"
 #include "ErrorManager.h"
 #include "PrivateKey.h"
 #pragma comment(lib,"comsuppw.lib")
 
 
-HRESULT EnrollFromPublicKey::RetrievePending(LONG requestId, const BSTR strConfig)
+HRESULT EnrollFromPublicKey::Initialize()
 {
-	LONG disposition;
-
-	Initialize();
-
-	InitializeICertRequest2();
-
-	if((hr = pCertRequest2->RetrievePending(requestId, strConfig, &disposition)) == S_OK)
-	{
-		if(disposition == CR_DISP_ISSUED)
-		{
-			std::cout << "Getting certificate..." << std::endl;
-			BSTR  bstrCert = NULL;
-			if(pCertRequest2->GetCertificate(CR_OUT_BASE64, &bstrCert) == S_OK)
-			{
-				const std::string certificate(_bstr_t(bstrCert, true));
-				std::cout << certificate << std::endl;
-				SysFreeString(bstrCert);
-			}
-			else
-			{
-				std::cout << "Failed to get certificate" << std::endl;
-			}
-
-			
-		}
-		else
-		{
-			std::cout << "Not Issued." << std::endl;
-			/*LONG status;
-			pCertRequest2->GetLastStatus(&status);
-			hr = pCertRequest2->GetDispositionMessage(&strDisposition);*/
-			
-		}
-	}
-	else
-	{
-		std::cout << "Failed calling RetrievePending..." << std::endl;
-		ErrorManager::PrintErrorCodeMessage(hr);
-	}
-	return hr;
+	std::cout << "[CoInitializeEx]" << std::endl;
+	// CoInitializeEx
+	const auto result = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+	
+	fCoInit = true;
+	return result;
 }
 
-EnrollFromPublicKey::~EnrollFromPublicKey()
-{
-	Uninitialize();
-}
+
 
 HRESULT EnrollFromPublicKey::Perform(PCWSTR pwszTemplateName, PCWSTR pwszFileOut, PCWSTR pwszSigningTemplateName)
 {
@@ -107,11 +74,11 @@ HRESULT EnrollFromPublicKey::Perform(PCWSTR pwszTemplateName, PCWSTR pwszFileOut
 
 	std::cout << "Key length is: " << keyLengthString << std::endl;
 
-
 	std::cout << "Private key using algorithm: " << privateKeyFactory.GetAlgorithmName() << std::endl;
 
 	std::cout << "Export the public key" << std::endl;
 	// Export the public key
+	//hr = privateKeyFactory.ExportPublicKey(&pPublicKey);
 	
 	hr = pKey->ExportPublicKey(&pPublicKey);
 	_JumpIfError(hr, error, "ExportPublicKey");
@@ -137,7 +104,7 @@ HRESULT EnrollFromPublicKey::Perform(PCWSTR pwszTemplateName, PCWSTR pwszFileOut
 	}
 
 	std::cout << "Initialize IX509CertificateRequestPkcs10 from public key" << std::endl;
-	// Initialize IX509CertificateRequestPkcs10 from public key
+	// Initialize from public key
 	hr = pPkcs10->InitializeFromPublicKey(
 		ContextUser,
 		pPublicKey,
@@ -327,17 +294,54 @@ HRESULT EnrollFromPublicKey::InitializeICertRequest2()
 	return result;
 }
 
-
-HRESULT EnrollFromPublicKey::Initialize()
+HRESULT EnrollFromPublicKey::RetrievePending(const LONG requestId, const BSTR strConfig)
 {
-	std::cout << "[CoInitializeEx]" << std::endl;
-	// CoInitializeEx
-	const auto result = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-	
-	fCoInit = true;
-	return result;
+	LONG disposition;
+
+	Initialize();
+
+	InitializeICertRequest2();
+
+	if((hr = pCertRequest2->RetrievePending(requestId, strConfig, &disposition)) == S_OK)
+	{
+		if(disposition == CR_DISP_ISSUED)
+		{
+			std::cout << "Getting certificate..." << std::endl;
+			BSTR  bstrCert = NULL;
+			if(pCertRequest2->GetCertificate(CR_OUT_BASE64, &bstrCert) == S_OK)
+			{
+				const std::string certificate(_bstr_t(bstrCert, true));
+				std::cout << certificate << std::endl;
+				SysFreeString(bstrCert);
+			}
+			else
+			{
+				std::cout << "Failed to get certificate" << std::endl;
+			}
+
+			
+		}
+		else
+		{
+			std::cout << "Not Issued." << std::endl;
+			/*LONG status;
+			pCertRequest2->GetLastStatus(&status);
+			hr = pCertRequest2->GetDispositionMessage(&strDisposition);*/
+			
+		}
+	}
+	else
+	{
+		std::cout << "Failed calling RetrievePending..." << std::endl;
+		ErrorManager::PrintErrorCodeMessage(hr);
+	}
+	return hr;
 }
 
+EnrollFromPublicKey::~EnrollFromPublicKey()
+{
+	Uninitialize();
+}
 
 void EnrollFromPublicKey::Uninitialize()
 {

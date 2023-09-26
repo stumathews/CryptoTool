@@ -10,5 +10,8 @@ class Common
 public:
 	static std::wstring GetProperty(const NCRYPT_HANDLE object, const std::wstring& propertyName, bool silence);
 	static void ReportError(DWORD dwErrCode);
+	static void LogIfError(DWORD hr, const char* message);
+	static std::wstring ToWString(std::string str);
+
 };
 

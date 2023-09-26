@@ -1,9 +1,35 @@
 #include "CaConfig.h"
 
+#include "Common.h"
 #include "ErrorManager.h"
 
 
+HRESULT CaConfig::Initialize()
+{
+     // Create an instance of the CertConfig object.
+    hr = CoCreateInstance( __uuidof(CCertConfig),
+                           nullptr,
+                           CLSCTX_INPROC_SERVER,
+                           _uuidof(ICertConfig2),
+                           (void **)&pConfig);
+    Common::LogIfError(hr, "Error creating CCertConfig");
+    return hr;
+}
 
+void CaConfig::Uninitialize() const
+{
+    if (pConfig)
+        pConfig->Release();
+}
+
+HRESULT CaConfig::GetConfig(LONG flags, BSTR*  bstrConfig)
+{
+	hr = pConfig->GetConfig(flags, bstrConfig);
+
+    Common::LogIfError(hr, "Error getting Ca Config");
+
+    return hr;
+}
 
 HRESULT CaConfig::GetCaConfig(BSTR*  bstrConfig, LONG flags)
 {

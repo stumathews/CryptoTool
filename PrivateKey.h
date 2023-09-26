@@ -1,5 +1,4 @@
 #pragma once
-#include "Either.h"
 #include <certenroll.h>
 #include <string>
 
@@ -10,10 +9,12 @@ public:
 	HRESULT Uninitialize();
 	HRESULT Create(const LONG keyLength = 2048);
 	std::string GetAlgorithmName() const;
-	Either<HRESULT, std::string> GetLength();
+	HRESULT GetLength(std::string* outLength);
 	HRESULT ExportPublicKey(IX509PublicKey** pPublicKey);
+	void Print();
 private:
 	IX509PrivateKey* pKey = nullptr;
 	HRESULT hr = 0;
 };
+
 

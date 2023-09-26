@@ -27,6 +27,9 @@
 #include <string>
 #include <winerror.h>
 
+#include "BStringHelper.h"
+#include "CertificateHelper.h"
+#include "Common.h"
 #include "enrollCommon.h"
 #include "ErrorManager.h"
 #include "PrivateKey.h"
@@ -35,234 +38,123 @@
 
 HRESULT EnrollFromPublicKey::Initialize()
 {
-	std::cout << "[CoInitializeEx]" << std::endl;
 	// CoInitializeEx
-	const auto result = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+	hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+
+	Common::LogIfError(hr, "Error calling CoInitializeEx");
 	
 	fCoInit = true;
-	return result;
+	return hr;
 }
-
-
 
 HRESULT EnrollFromPublicKey::Perform(PCWSTR pwszTemplateName, PCWSTR pwszFileOut, PCWSTR pwszSigningTemplateName)
 {
+	std::wcout << "Requesting a cert using template: " << pwszTemplateName << std::endl;
+	std::wcout << "Sign with certificate with template of: " << pwszSigningTemplateName << std::endl;
 
-	std::wcout << "Requesting a cert using template: " << pwszTemplateName
-	<< "\n will try to write it out to: "
-	<< pwszFileOut << " \nand will sign with cert called: "
-	<< pwszSigningTemplateName << std::endl;
+	strTemplateName = BStringHelper::CreateBSTR(pwszTemplateName);
 
 	Initialize();
-   
-	/* Get the public key */
 
-	std::cout << "Create IX509PrivateKey" << std::endl;
+	// Create a private key
+	privateKey.Initialize();
+	privateKey.Create(2048);
 
-	privateKeyFactory.Initialize();
+	privateKey.Print();
+
+	// Get public key
+	hr = privateKey.ExportPublicKey(&pPublicKey);
+
+	// Create certificate request
+	x509CertificateRequest.Initialize(ContextUser, strTemplateName);
+	x509CertificateRequest.InitializeFromPublicKey(pPublicKey);
+
+	// Create encrypted CMC certificate request and embed certificate request within
+	x509CmcCertificateRequest.Initialize();
+	hr = x509CmcCertificateRequest.Get()->InitializeFromInnerRequest(x509CertificateRequest.Get());
 	
-	_JumpIfError(hr, error, "CoCreateInstance");
-
-	std::cout << "Create the key" << std::endl;
-
-	privateKeyFactory.Create(2048);
-
-	_JumpIfError(hr, error, "Create");
-	
-	keyLengthString = privateKeyFactory.GetLength().Match(
-		[](long error) {return  std::string("[Error fetching length]"); },
-		[](std::string inLength) {return inLength;});
-
-	std::cout << "Key length is: " << keyLengthString << std::endl;
-
-	std::cout << "Private key using algorithm: " << privateKeyFactory.GetAlgorithmName() << std::endl;
-
-	std::cout << "Export the public key" << std::endl;
-	// Export the public key
-	hr = privateKeyFactory.ExportPublicKey(&pPublicKey);
-	
-	//hr = pKey->ExportPublicKey(&pPublicKey);
-	_JumpIfError(hr, error, "ExportPublicKey");
-	
-	std::cout << "Intilialize the CMC request from the public key" << std::endl;
-	/* Intilialize the CMC request from the public key */
-
-	// Create IX509CertificateRequestPkcs10
-	hr = CoCreateInstance(
-		__uuidof(CX509CertificateRequestPkcs10),
-		nullptr,       // pUnkOuter
-		CLSCTX_INPROC_SERVER,
-		__uuidof(IX509CertificateRequestPkcs10),
-		(void **) &pPkcs10);
-	_JumpIfError(hr, error, "CoCreateInstance");
-
-	// Allocate BSTR for template name
-	strTemplateName = SysAllocString(pwszTemplateName);
-	if (nullptr == strTemplateName)
+	// Find or Enroll a signing Certificate to use to sign certificate request
+	if (S_OK != findCertByTemplate(pwszSigningTemplateName, &pCert))
 	{
-		hr = E_OUTOFMEMORY;
-		_JumpError(hr, error, "SysAllocString");
-	}
-
-	std::cout << "Initialize IX509CertificateRequestPkcs10 from public key" << std::endl;
-	// Initialize from public key
-	hr = pPkcs10->InitializeFromPublicKey(
-		ContextUser,
-		pPublicKey,
-		strTemplateName);
-	_JumpIfError(hr, error, "InitializeFromPublicKey");
-
-	std::cout << "Create IX509CertificateRequestCmc" << std::endl;
-	// Create IX509CertificateRequestCmc
-	hr = CoCreateInstance(
-		_uuidof(CX509CertificateRequestCmc),
-		nullptr,       // pUnkOuter
-		CLSCTX_INPROC_SERVER,
-		_uuidof(IX509CertificateRequestCmc),
-		(void **) &pCmc);
-	_JumpIfError(hr, error, "CoCreateInstance");
-
-	// Initialize IX509CertificateRequestCmc
-	hr = pCmc->InitializeFromInnerRequest(pPkcs10);
-	_JumpIfError(hr, error, "InitializeFromInnerRequest");
-
-
-	std::cout << "Sign the CMC request with a signing cert " << std::endl;
-	/* Sign the CMC request with a signing cert */
-
-	// Find a signing cert
-	hr = findCertByTemplate(pwszSigningTemplateName, &pCert);
-	if (S_OK != hr)
-	{
-		std::cout << "Could not find a certificate by that tempalte in my store..." << std::endl;
 		hr = findCertByKeyUsage(CERT_DIGITAL_SIGNATURE_KEY_USAGE, &pCert);
 	}
 
 	if (S_OK != hr) // Cert not found
 	{
-		std::cout << "Could not find any CERT_DIGITAL_SIGNATURE_KEY_USAG certs..." << std::endl;
-		// Enroll a signing cert first
-		std::cout << "Enroll a signing cert first" << std::endl;
+		std::cout << "No signing certificate found to sign certificate request." << std::endl;
+		std::wcout << "Enrolling new signing certificate (" << pwszSigningTemplateName << ")" << std::endl;
+
 		hr = enrollCertByTemplate(pwszSigningTemplateName);
-		_JumpIfError(hr, error, "enrollCertByTemplate");    
+
+		Common::LogIfError(hr, "Error enrolling certificate by template");  
  
 		// Search again
-		std::cout << "Search again" << std::endl;
 		hr = findCertByKeyUsage(CERT_DIGITAL_SIGNATURE_KEY_USAGE, &pCert);
-		_JumpIfError(hr, error, "findCertByKeyUsage");  
+
+		Common::LogIfError(hr, "Error finding certificate by key usage");  
 	}
-	
-	std::cout << "Verify the certificate chain" << std::endl;
-	// Verify the certificate chain
+		
+	std::wcout << "Will be using this signing certificate: " << CertificateHelper::IdentifyCertificate(pCert)  << std::endl; 
+
+	// Verify the signing certificate chain
 	hr = verifyCertContext(pCert, nullptr);
-	_JumpIfError(hr, error, "verifyCertContext");
 
-	// Convert PCCERT_CONTEXT to BSTR
-	strRACert = SysAllocStringByteLen(
-		(CHAR const *) pCert->pbCertEncoded, 
-		pCert->cbCertEncoded);
+	Common::LogIfError(hr, "Problem encountered while verifying signing certificate context");
 
-	if (nullptr == strRACert)
-	{
-		hr = E_OUTOFMEMORY;
-		_JumpError(hr, error, "SysAllocStringByteLen");
-	}
-
-	std::cout << "Retrieve ISignerCertificates collection from CMC request" << std::endl;
-	// Retrieve ISignerCertificates collection from CMC request
-	hr = pCmc->get_SignerCertificates(&pSignerCertificates);
-	_JumpIfError(hr, error, "get_SignerCertificates");
-
-	// Create ISignerCertificate
-	hr = CoCreateInstance(
-		__uuidof(CSignerCertificate),
-		nullptr,   // pUnkOuter
-		CLSCTX_INPROC_SERVER, 
-		__uuidof(ISignerCertificate), 
-		(void **)&pSignerCertificate); 
-	_JumpIfError(hr, error, "CoCreateInstance");
-
-	// Initialize ISignerCertificate from signing cert
-	hr = pSignerCertificate->Initialize(
-		VARIANT_FALSE,
-		VerifyNone,
-		XCN_CRYPT_STRING_BINARY,
-		strRACert);
-	_JumpIfError(hr, error, "Initialize");
-
-	// Add the signing cert into ISignerCertificates collection
-	hr = pSignerCertificates->Add(pSignerCertificate);
-	_JumpIfError(hr, error, "Add");
-
-	std::cout << "Encode the CMC request, submit the request to an enterprise CA" << std::endl;
-	/* Encode the CMC request, submit the request to an enterprise CA */
-
+	// Sign the CMC request with a signing cert
+	hr = x509CmcCertificateRequest.AddSigningCertificate(pCert);
+	
 	// Encode the CMC request
-	hr = pCmc->Encode();
-	_JumpIfError(hr, error, "Encode");
+	hr = x509CmcCertificateRequest.Get()->Encode();
+
+	Common::LogIfError(hr, "Problem encountered while encoding CMC request");
     
-	// Get BSTR of the CMC request
-	hr = pCmc->get_RawData(XCN_CRYPT_STRING_BASE64, &strRequest);
-	_JumpIfError(hr, error, "Encode");
+	// Get and encode raw CMC request
+	hr = x509CmcCertificateRequest.Get()->get_RawData(XCN_CRYPT_STRING_BASE64, &strCertificateRequest);
 
-	// Create ICertConfig
-	hr = CoCreateInstance(
-		__uuidof(CCertConfig),
-		nullptr,
-		CLSCTX_INPROC_SERVER,
-		__uuidof(ICertConfig),
-		(void**)&pCertConfig);
-	_JumpIfError(hr, error, "CoCreateInstance");
+	Common::LogIfError(hr, "Problem encountered while getting encoding CMC request");
 
-	std::cout << "Get the CA Config from UI" << std::endl;
-	// Get the CA Config from UI
-	hr = pCertConfig->GetConfig(CC_UIPICKCONFIG, &strCAConfig);
-	_JumpIfError(hr, error, "GetConfig");
+	// Select CA to send request to
+	hr = caConfig.Initialize();
+	hr = caConfig.GetConfig(CC_UIPICKCONFIG, &strCAConfig);
 
-	std::cout << "Using strCaConfig: " << std::string(_bstr_t(strCAConfig, true)) << std::endl;
+	Common::LogIfError(hr, "Problem encountered while getting CA configuration");
 
-	// Initialize ICertRequest2
-	hr = InitializeICertRequest2();	
-	_JumpIfError(hr, error, "CoCreateInstance");
+	std::cout << "Using CA: " << std::string(_bstr_t(strCAConfig, true)) << std::endl;
 
-	std::cout << "Submit the request" << std::endl;
-	// Submit the request
-	hr = pCertRequest2->Submit(
-		CR_IN_BASE64 | CR_IN_FORMATANY, 
-		strRequest,
-		nullptr, 
-		strCAConfig,
-		&pDisposition);
-	_JumpIfError(hr, error, "Submit");
+	certificateRequester.Initialize();
 
+	// Submit the request to an enterprise CA	
+	hr = certificateRequester.Submit(strCertificateRequest, strCAConfig, &pDisposition);
+	
 	// Check the submission status
 	if (pDisposition != CR_DISP_ISSUED) // Not enrolled
 	{
-		hr = pCertRequest2->GetDispositionMessage(&strDisposition);
+		hr = certificateRequester.Get()->GetDispositionMessage(&strDisposition);
 		
-		_JumpIfError(hr, error, "GetDispositionMessage");
+		Common::LogIfError(hr, "Problem encountered while getting disposition message");
         
 		if (pDisposition == CR_DISP_UNDER_SUBMISSION) // Pending
 		{
 			wprintf(L"The submission is pending: %ws\n", strDisposition);
-
-			// Get the requestId
+			
 			LONG requestId = 0;
-			pCertRequest2->GetRequestId(&requestId);
+			certificateRequester.Get()->GetRequestId(&requestId);
 
-			std::cout << "RequstId: " << requestId << std::endl;
+			std::cout << "RequestId: " << requestId << std::endl;
 
-			_JumpError(hr, error, "Submit");
-		} 
-		else // Failed
-		{
-			wprintf(L"The submission failed: %ws\n", strDisposition);
-			pCertRequest2->GetLastStatus(&hr);
-			_JumpError(hr, error, "Submit");
+			Common::LogIfError(hr, "Problem encountered while submitting certificate request");
+			return hr;
 		}
+
+		wprintf(L"The submission failed: %ws\n", strDisposition);
+		certificateRequester.Get()->GetLastStatus(&hr);
+
+		Common::LogIfError(hr, "Problem encountered while submitting certificate request");
+
+		return hr;
 	}
 
-	std::cout << "Get the response, and save it to a file" << std::endl;
 	/* Get the response, and save it to a file */
 
 	// Initialize varFullResponse
@@ -271,35 +163,23 @@ HRESULT EnrollFromPublicKey::Perform(PCWSTR pwszTemplateName, PCWSTR pwszFileOut
 	varFullResponse.bstrVal = nullptr;
 
 	// Get the full response in binary format
-	hr = pCertRequest2->GetFullResponseProperty(
+	hr = certificateRequester.Get()->GetFullResponseProperty(
 		FR_PROP_FULLRESPONSENOPKCS7,
 		0,
 		PROPTYPE_BINARY,
 		CR_OUT_BINARY,
 		&varFullResponse);
-	_JumpIfError(hr, error, "GetFullResponseProperty");
+
+	Common::LogIfError(hr, "Problem encountered while getting full response property");
 
 	// Save the response to file in base64 format
-	hr = EncodeToFileW(
-		pwszFileOut, 
-		(BYTE const *) varFullResponse.bstrVal, 
+	hr = EncodeToFileW(pwszFileOut,  reinterpret_cast<BYTE const*>(varFullResponse.bstrVal),  
 		SysStringByteLen(varFullResponse.bstrVal), 
 		CR_OUT_BASE64 | DECF_FORCEOVERWRITE);
-	_JumpIfError(hr, error, "EncodeToFileW");
 
-error:
+	Common::LogIfError(hr, "Problem encountered while writing response to file");
+
 	return hr;
-}
-
-HRESULT EnrollFromPublicKey::InitializeICertRequest2()
-{
-	const auto result = CoCreateInstance(
-		__uuidof(CCertRequest),
-		nullptr,
-		CLSCTX_INPROC_SERVER,
-		__uuidof(ICertRequest2),
-		(void**)&pCertRequest2);
-	return result;
 }
 
 HRESULT EnrollFromPublicKey::RetrievePending(const LONG requestId, const BSTR strConfig)
@@ -308,61 +188,47 @@ HRESULT EnrollFromPublicKey::RetrievePending(const LONG requestId, const BSTR st
 
 	Initialize();
 
-	InitializeICertRequest2();
+	certificateRequester.Initialize();
 
-	if((hr = pCertRequest2->RetrievePending(requestId, strConfig, &disposition)) == S_OK)
+	if((hr = certificateRequester.Get()->RetrievePending(requestId, strConfig, &disposition)) == S_OK)
 	{
 		if(disposition == CR_DISP_ISSUED)
 		{
-			std::cout << "Getting certificate..." << std::endl;
-			BSTR  bstrCert = NULL;
-			if(pCertRequest2->GetCertificate(CR_OUT_BASE64HEADER, &bstrCert) == S_OK)
+			std::cout << "Certificate issued. Getting certificate..." << std::endl;
+			BSTR  bstrCert = nullptr;
+
+			if(certificateRequester.Get()->GetCertificate(CR_OUT_BASE64HEADER, &bstrCert) == S_OK)
 			{
 				const std::string certificate(_bstr_t(bstrCert, true));
 				
 				auto fileName =  L"base64x509.cer";
+
 				// open the file
-				HANDLE hUfile = CreateFile(fileName,
-                               GENERIC_WRITE,
-                               0,
-                               NULL,
-                               CREATE_ALWAYS,
-                               FILE_ATTRIBUTE_NORMAL,
-                               NULL );
+				const HANDLE hFile = CreateFile(fileName, GENERIC_WRITE, 0, nullptr,
+				                                CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 				DWORD dwBytes = 0;
 				const DWORD dwLen = ::SysStringLen( bstrCert ) * 2;
 
-				if(WriteFile( hUfile,
-		                        bstrCert,
-		                        dwLen,
-		                        &dwBytes,
-		                        NULL ))
+				if(WriteFile(hFile, bstrCert, dwLen, &dwBytes, nullptr))
 				{
 					std::wcout << "Saved to " << fileName << std::endl;
 				}
-
 
 				SysFreeString(bstrCert);
 			}
 			else
 			{
-				std::cout << "Failed to get certificate" << std::endl;
-			}
-
-			
+				std::cout << "Failed to get certificate." << std::endl;
+			}			
 		}
 		else
 		{
-			std::cout << "Not Issued." << std::endl;
-			/*LONG status;
-			pCertRequest2->GetLastStatus(&status);
-			hr = pCertRequest2->GetDispositionMessage(&strDisposition);*/
-			
+			std::cout << "Not Issued." << std::endl;			
 		}
 	}
 	else
 	{
-		std::cout << "Failed calling RetrievePending..." << std::endl;
+		std::cout << "Failed retrieving certificate from CA." << std::endl;
 		ErrorManager::PrintErrorCodeMessage(hr);
 	}
 	return hr;
@@ -377,20 +243,18 @@ void EnrollFromPublicKey::Uninitialize()
 {
 	SysFreeString(strTemplateName);
 	SysFreeString(strCAConfig);
-	SysFreeString(strRequest);
+	SysFreeString(strCertificateRequest);
 	SysFreeString(strRACert);
 	SysFreeString(strDisposition);
 	VariantClear(&varFullResponse);
 	
-	privateKeyFactory.Uninitialize();
+	privateKey.Uninitialize();
+	x509CertificateRequest.Uninitialize();
+	x509CmcCertificateRequest.UnInitialize();
 
 	if (nullptr != pPublicKey) pPublicKey->Release();
-	if (nullptr != pPkcs10) pPkcs10->Release();
-	if (nullptr != pCmc) pCmc->Release();
-	if (nullptr != pCertRequest2) pCertRequest2->Release();
-	if (nullptr != pSignerCertificate) pSignerCertificate->Release();
-	if (nullptr != pSignerCertificates) pSignerCertificates->Release();
 	if (nullptr != pCert) CertFreeCertificateContext(pCert);
+
 	if (fCoInit) CoUninitialize();
 }
 

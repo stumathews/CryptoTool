@@ -310,11 +310,7 @@ DWORD __cdecl wmain(_In_ int argc, _In_reads_(argc)LPWSTR  argv[])
 			const auto fileOut = cmdArgs[4].c_str();
 			const auto signingTemplateName = cmdArgs[5].c_str();  
 			
-			if(enrollFromPublicKey.Perform(templateName, fileOut, signingTemplateName) == S_OK)
-			{
-				std::wcout << "Successfully written to " << fileOut << std::endl;
-			}
-			
+			enrollFromPublicKey.Perform(templateName, fileOut, signingTemplateName);
 		}
 
 		// CryptoTool.exe CertificateAuthority -RetrievePending <RequestId> <strConfig>

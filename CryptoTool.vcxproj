@@ -128,6 +128,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="CaConfig.cpp" />
+    <ClCompile Include="CertificateHelper.cpp" />
+    <ClCompile Include="CertificateRequester.cpp" />
+    <ClCompile Include="CertificateRequestX509.cpp" />
+    <ClCompile Include="CertificateRequestX509CMC.cpp" />
     <ClCompile Include="CmcCertificateRequest.cpp" />
     <ClCompile Include="Common.cpp" />
     <ClCompile Include="CryptoTool.cpp" />
@@ -142,7 +146,12 @@
     <ClCompile Include="Providers.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="BStringHelper.h" />
     <ClInclude Include="CaConfig.h" />
+    <ClInclude Include="CertificateHelper.h" />
+    <ClInclude Include="CertificateRequester.h" />
+    <ClInclude Include="CertificateRequestX509.h" />
+    <ClInclude Include="CertificateRequestX509CMC.h" />
     <ClInclude Include="CmcCertificateRequest.h" />
     <ClInclude Include="Common.h" />
     <ClInclude Include="Either.h" />

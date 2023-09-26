@@ -3,6 +3,8 @@
 #include <comutil.h>
 #include <iostream>
 #include <string>
+
+#include "Common.h"
 #include "ErrorManager.h"
 
 HRESULT PrivateKey::Initialize()
@@ -15,6 +17,8 @@ HRESULT PrivateKey::Initialize()
 		__uuidof(IX509PrivateKey),
 		(void **) &pKey);
 
+	Common::LogIfError(hr, "CoCreate CX509PrivateKey failed");
+
 	return hr;
 }
 
@@ -26,17 +30,34 @@ HRESULT PrivateKey::Create(const LONG keyLength)
 	// Create the key
 	hr = pKey->Create();
 
+	Common::LogIfError(hr, "Error creating private key");
+
+
 	return hr;
 }
 
-Either<HRESULT, std::string> PrivateKey::GetLength()
+
+void PrivateKey::Print()
+{
+	std::string keyLengthString;
+	hr = GetLength(&keyLengthString);
+	Common::LogIfError(hr, "Unable to get private key length");
+
+	std::cout << "Private Key: [" << GetAlgorithmName() << " " << keyLengthString << "]" << std::endl;
+}
+
+HRESULT PrivateKey::GetLength(std::string* outLength)
 {
 	LONG length;
 	hr = pKey->get_Length(&length);
+
 	if(hr == S_OK)
 	{
-		return std::to_string(length);
+		*outLength = std::to_string(length);
 	}
+
+	Common::LogIfError(hr, "Error getting private key length");
+
 	return hr;
 	
 }
@@ -44,6 +65,9 @@ Either<HRESULT, std::string> PrivateKey::GetLength()
 HRESULT PrivateKey::ExportPublicKey(IX509PublicKey** pPublicKey)
 {
 	hr = pKey->ExportPublicKey(pPublicKey);
+
+	Common::LogIfError(hr, "Error exporting public key");
+
 	return hr;
 }
 

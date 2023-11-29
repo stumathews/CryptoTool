@@ -18,6 +18,7 @@
 #include "Key.h"
 #include <comutil.h>
 
+#include "BStringHelper.h"
 #include "EnrollOnBehalfOf.h"
 
 
@@ -334,9 +335,23 @@ DWORD __cdecl wmain(_In_ int argc, _In_reads_(argc)LPWSTR  argv[])
 			const auto password = cmdArgs[6];
 			const auto eaTemplate = cmdArgs[7];
 
-			EnrollOnBehalfOf eobo;
-			eobo.Initialize();
-			eobo.Perform(templateName.c_str(), requester.c_str(), fileOut.c_str(), password.c_str(), eaTemplate.c_str());
+			EnrollOnBehalfOf enrollOnBehalfOf;
+			enrollOnBehalfOf.Perform(templateName.c_str(), requester.c_str(), fileOut.c_str(), password.c_str(), eaTemplate.c_str());
+		}
+
+		// CryptoTool.exe CertificateAuthority -GetTemplates <strConfig>
+		
+		if(IsEqual(operation, L"-GetTemplates"))
+		{
+			// CoInitializeEx
+			CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+			auto strConfig = BStringHelper::CreateBSTR(cmdArgs[3]);
+
+			CertificateRequester certRequester;
+			certRequester.Initialize();
+			auto templates = certRequester.GetCaTemplates(strConfig);
+			BStringHelper::FreeBSTR(strConfig);
+			std::wcout << templates << std::endl;
 		}
 
 		return 0; // finished

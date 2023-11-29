@@ -5,7 +5,6 @@
 #include <string>
 
 #include "Common.h"
-#include "ErrorManager.h"
 
 HRESULT PrivateKey::Initialize()
 {
@@ -43,7 +42,7 @@ void PrivateKey::Print()
 	hr = GetLength(&keyLengthString);
 	Common::LogIfError(hr, "Unable to get private key length");
 
-	std::cout << "Private Key: [" << GetAlgorithmName() << " " << keyLengthString << "]" << std::endl;
+	std::cout << "Private Key: [" << GetAlgorithmName() << " " << keyLengthString << " " << GetFriendlyName() << "]" << std::endl;
 }
 
 HRESULT PrivateKey::GetLength(std::string* outLength)
@@ -92,8 +91,25 @@ std::string PrivateKey::GetAlgorithmName() const
 	return algorithmName;
 }
 
+std::string PrivateKey::GetFriendlyName() const
+{
+	BSTR friendlyName;
+	std::string result;
+	if(pKey->get_FriendlyName(&friendlyName) == S_OK)	
+	{			
+		result = std::string(_bstr_t(friendlyName, true));
+		SysFreeString(friendlyName);
+	}
+	else
+	{
+		result = "";
+	}
+	
+	return result;
+}
 
-HRESULT PrivateKey::Uninitialize()
+
+HRESULT PrivateKey::Uninitialize() const
 {
 	if (nullptr != pKey) pKey->Release();
 	return hr;

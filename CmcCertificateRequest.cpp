@@ -4,9 +4,11 @@
 #include <iostream>
 #include <ostream>
 
-void CmcCertificateRequest::Initialize()
+#include "Common.h"
+
+HRESULT CmcCertificateRequest::Initialize()
 {
-	std::cout << "Create IX509CertificateRequestCmc" << std::endl;
+	
 	// Create IX509CertificateRequestCmc
 	hr = CoCreateInstance(
 		_uuidof(CX509CertificateRequestCmc),
@@ -14,6 +16,10 @@ void CmcCertificateRequest::Initialize()
 		CLSCTX_INPROC_SERVER,
 		_uuidof(IX509CertificateRequestCmc),
 		(void **) &pCmc);
+
+	Common::LogIfError(hr, "Error creating CX509CertificateRequestCmc");
+
+	return hr;
 
 }
 
@@ -27,7 +33,7 @@ CmcCertificateRequest::~CmcCertificateRequest()
 	Uninitialize();
 }
 
-IX509CertificateRequestCmc* CmcCertificateRequest::GetRequest()
+IX509CertificateRequestCmc* CmcCertificateRequest::GetRequest() const
 {
 	return pCmc;
 }

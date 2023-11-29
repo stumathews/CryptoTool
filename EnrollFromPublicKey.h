@@ -1,6 +1,5 @@
 #pragma once
 #include <certenroll.h>
-#include <certcli.h>
 #include <wincrypt.h>
 
 #include "CaConfig.h"
@@ -9,6 +8,9 @@
 #include "CertificateRequestX509CMC.h"
 #include "PrivateKey.h"
 
+/**
+ * \brief Create a CMC request from a public key and enroll using certenroll API
+ */
 class EnrollFromPublicKey
 {
 public:
@@ -16,7 +18,7 @@ public:
 	void Uninitialize();
 	HRESULT Initialize();
 	HRESULT Perform(PCWSTR pwszTemplateName, PCWSTR pwszFileOut, PCWSTR pwszSigningTemplateName);
-	HRESULT RetrievePending(LONG requestId, const BSTR strConfig);
+	HRESULT RetrievePending(LONG requestId, BSTR strConfig);
 
 private:
 	HRESULT hr {};

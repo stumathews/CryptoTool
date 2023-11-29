@@ -20,13 +20,11 @@
 
 #include "EnrollFromPublicKey.h"
 
-#include <certsrv.h>
+#include <CertSrv.h>
 #include <iostream>
 #include <comutil.h>
 #include <fstream>
 #include <string>
-#include <winerror.h>
-
 #include "BStringHelper.h"
 #include "CertificateHelper.h"
 #include "Common.h"
@@ -182,7 +180,7 @@ HRESULT EnrollFromPublicKey::Perform(PCWSTR pwszTemplateName, PCWSTR pwszFileOut
 	return hr;
 }
 
-HRESULT EnrollFromPublicKey::RetrievePending(const LONG requestId, const BSTR strConfig)
+HRESULT EnrollFromPublicKey::RetrievePending(const LONG requestId, BSTR strConfig)
 {
 	LONG disposition;
 
@@ -204,7 +202,7 @@ HRESULT EnrollFromPublicKey::RetrievePending(const LONG requestId, const BSTR st
 				auto fileName =  L"base64x509.cer";
 
 				// open the file
-				const HANDLE hFile = CreateFile(fileName, GENERIC_WRITE, 0, nullptr,
+				const auto hFile = CreateFile(fileName, GENERIC_WRITE, 0, nullptr,
 				                                CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 				DWORD dwBytes = 0;
 				const DWORD dwLen = ::SysStringLen( bstrCert ) * 2;

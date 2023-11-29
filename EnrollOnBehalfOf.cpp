@@ -1,79 +1,42 @@
 #include "EnrollOnBehalfOf.h"
 
+#include "BStringHelper.h"
+#include "CertificateHelper.h"
+#include "CertificateRequestX509CMC.h"
 #include "CmcCertificateRequest.h"
+#include "Common.h"
 #include "enrollCommon.h"
 
 
-void EnrollOnBehalfOf::Initialize()
-{
-    // CoInitializeEx
-    hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
-    _JumpIfError(hr, error, "CoInitializeEx");
-    fCoInit = true;
-
-    // Allocate BSTR for template name
-    strTemplateName = SysAllocString(pwszTemplateName);
-    if (NULL == strTemplateName)
-    {
-        hr = E_OUTOFMEMORY;
-        _JumpError(hr, error, "SysAllocString");
-    }
-
-    // Allocate BSTR for requester name
-    strRequester = SysAllocString(pwszRequester);
-    if (NULL == strRequester)
-    {
-        hr = E_OUTOFMEMORY;
-        _JumpError(hr, error, "SysAllocString");
-    }
-
-    // Allocate BSTR for the password of PFX file
-    strPassword = SysAllocString(pwszPassword);
-    if (NULL == strPassword)
-    {
-        hr = E_OUTOFMEMORY;
-        _JumpError(hr, error, "SysAllocString");
-    }
-    error:
-    ;
-}
-
-void EnrollOnBehalfOf::Uninitialize()
-{
-	SysFreeString(strTemplateName);
-    SysFreeString(strRequester);
-    SysFreeString(strEACert);
-    SysFreeString(strCert);
-    SysFreeString(strPFX);
-    SysFreeString(strPassword);
-    if (NULL != pEnroll) pEnroll->Release();
-    if (NULL != pRequest) pRequest->Release();
-    if (NULL != pInnerRequest) pInnerRequest->Release();
-    if (NULL != pPkcs10) pPkcs10->Release();
-    if (NULL != pCmc) pCmc->Release();
-    if (NULL != pKey) pKey->Release();
-    if (NULL != pSignerCertificate) pSignerCertificate->Release();
-    if (NULL != pSignerCertificates) pSignerCertificates->Release();
-    if (NULL != pCert) CertFreeCertificateContext(pCert);
-    if (NULL != pCertContext) CertFreeCertificateContext(pCertContext);
-    if (NULL != hStore) CertCloseStore(hStore, 0);
-    if (fCoInit) CoUninitialize();
-}
-
 void EnrollOnBehalfOf::Perform(PCWSTR pwszTemplateName,  PCWSTR pwszRequester, PCWSTR pwszFileOut, PCWSTR pwszPassword, PCWSTR pwszEATemplateName = L"EnrollmentAgent")
-{
-    this->pwszTemplateName = pwszTemplateName;
+{    
+
+	PSTR ea = (char*)szOID_ENROLLMENT_AGENT;
+
+	this->pwszTemplateName = pwszTemplateName;
     this->pwszRequester = pwszRequester;
     this->pwszFileOut = pwszFileOut;
 	this->pwszPassword = pwszPassword;
     this->pwszEATemplateName = pwszEATemplateName;
-      
+    
+    std::wcout << "Template Name: " << this->pwszTemplateName << std::endl;
+    std::wcout << "Requester Name: " << this->pwszRequester << std::endl;
+    std::wcout << "Output File Name: " << this->pwszFileOut << std::endl;
+    std::wcout << "Password: " << this->pwszPassword << std::endl;
+    std::wcout << "Enrollment Agent Template Name: " << this->pwszEATemplateName << std::endl;
+
+    
+    Initialize(pwszTemplateName, pwszRequester, pwszFileOut, pwszPassword, pwszEATemplateName);
+
     // Create IX509CertificateRequestCmc
-
-    CmcCertificateRequest cmcCertificateRequest;
-    cmcCertificateRequest.Initialize();
-    pCmc = cmcCertificateRequest.GetRequest();
-
+    hr = CoCreateInstance(
+            __uuidof(CX509CertificateRequestCmc),
+            NULL,       // pUnkOuter
+            CLSCTX_INPROC_SERVER,
+            __uuidof(IX509CertificateRequestCmc),
+            (void **) &pCmc);
+    _JumpIfError(hr, error, "CoCreateInstance");
+      
     // Initialize IX509CertificateRequestCmc
     hr = pCmc->InitializeFromTemplateName(
             ContextUser,      
@@ -84,6 +47,7 @@ void EnrollOnBehalfOf::Perform(PCWSTR pwszTemplateName,  PCWSTR pwszRequester, P
     hr = pCmc->put_RequesterName(strRequester);
     _JumpIfError(hr, error, "put_RequesterName");    
  
+
     /* Find a EA certificate first */
 
     // Find a cert that has EKU of Certificate Request Agent
@@ -99,9 +63,13 @@ void EnrollOnBehalfOf::Perform(PCWSTR pwszTemplateName,  PCWSTR pwszRequester, P
         _JumpIfError(hr, error, "findCertByEKU");  
     }
 
+    std::wcout << "Will sign with: " << CertificateHelper::IdentifyCertificate(pCert) << std::endl;
+    
     // Verify the certificate chain and its EKU
-    hr = verifyCertContext(pCert, (char*)szOID_ENROLLMENT_AGENT);
+    hr = verifyCertContext(pCert, ea);
     _JumpIfError(hr, error, "verifyCertContext");
+
+    std::wcout << "Certificate verification passed." << std::endl;
 
     // Convert PCCERT_CONTEXT to BSTR
     strEACert = SysAllocStringByteLen(
@@ -143,6 +111,7 @@ void EnrollOnBehalfOf::Perform(PCWSTR pwszTemplateName,  PCWSTR pwszRequester, P
 
 
     /* Enroll for EOBO request */
+    std::cout << "Enroll for EOBO request..." << std::endl;
     
     // Create IX509Enrollment
     hr = CoCreateInstance(
@@ -268,7 +237,6 @@ void EnrollOnBehalfOf::Perform(PCWSTR pwszTemplateName,  PCWSTR pwszRequester, P
     // Delete the private key
     hr = pKey->Delete();
     _JumpIfError(hr, error, "Delete");
-
 error:
     ;
 }
@@ -276,4 +244,60 @@ error:
 EnrollOnBehalfOf::~EnrollOnBehalfOf()
 {
 	Uninitialize();
+}
+
+void EnrollOnBehalfOf::Initialize(PCWSTR pwszTemplateName,  PCWSTR pwszRequester, PCWSTR pwszFileOut, PCWSTR pwszPassword, PCWSTR pwszEATemplateName)
+{
+    // CoInitializeEx
+    hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+    Common::LogIfError(hr, "Error calling CoInitializeEx");
+
+    fCoInit = true;
+
+    // Allocate BSTR for template name
+    
+    strTemplateName = BStringHelper::CreateBSTR(pwszTemplateName);
+    if (NULL == strTemplateName)
+    {
+        hr = E_OUTOFMEMORY;
+        Common::LogIfError(hr, "Error allocating memory for template name");
+    }
+
+    // Allocate BSTR for requester name
+    strRequester = BStringHelper::CreateBSTR(pwszRequester);
+    if (NULL == strRequester)
+    {
+        hr = E_OUTOFMEMORY;
+        Common::LogIfError(hr, "Error allocating memory for requester name");
+    }
+
+    // Allocate BSTR for the password of PFX file
+    strPassword = BStringHelper::CreateBSTR(pwszPassword);
+    if (NULL == strPassword)
+    {
+        hr = E_OUTOFMEMORY;
+        Common::LogIfError(hr, "Error allocating memory for password");
+    }
+}
+
+void EnrollOnBehalfOf::Uninitialize() const
+{
+	SysFreeString(strTemplateName);
+    SysFreeString(strRequester);
+    SysFreeString(strEACert);
+    SysFreeString(strCert);
+    SysFreeString(strPFX);
+    SysFreeString(strPassword);
+    if (NULL != pEnroll) pEnroll->Release();
+    if (NULL != pRequest) pRequest->Release();
+    if (NULL != pInnerRequest) pInnerRequest->Release();
+    if (NULL != pPkcs10) pPkcs10->Release();
+    if (NULL != pCmc) pCmc->Release();
+    if (NULL != pKey) pKey->Release();
+    if (NULL != pSignerCertificate) pSignerCertificate->Release();
+    if (NULL != pSignerCertificates) pSignerCertificates->Release();
+    if (NULL != pCert) CertFreeCertificateContext(pCert);
+    if (NULL != pCertContext) CertFreeCertificateContext(pCertContext);
+    if (NULL != hStore) CertCloseStore(hStore, 0);
+    if (fCoInit) CoUninitialize();
 }

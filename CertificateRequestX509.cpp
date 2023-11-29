@@ -27,6 +27,13 @@ DWORD CertificateRequestX509::InitializeFromPublicKey(IX509PublicKey* pPublicKey
 	return hr;
 }
 
+HRESULT CertificateRequestX509::InitializeFromPrivateKey(IX509PrivateKey* privateKey)
+{
+	hr = pPkcs10->InitializeFromPrivateKey(Context, privateKey, TemplateName);
+	Common::LogIfError(hr, "Error initializing certificate request from private key");
+	return hr;
+}
+
 void CertificateRequestX509::Uninitialize() const
 {
 	if (nullptr != pPkcs10) pPkcs10->Release();

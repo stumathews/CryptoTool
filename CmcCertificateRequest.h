@@ -4,10 +4,10 @@
 class CmcCertificateRequest
 {
 public:
-	void Initialize();
+	HRESULT Initialize();
 	void Uninitialize();
 	~CmcCertificateRequest();
-	IX509CertificateRequestCmc* GetRequest();
+	IX509CertificateRequestCmc* GetRequest() const;
 private:
 	HRESULT hr;
 	IX509CertificateRequestCmc* pCmc = nullptr;

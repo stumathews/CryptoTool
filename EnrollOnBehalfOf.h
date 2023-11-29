@@ -4,34 +4,35 @@
 class EnrollOnBehalfOf
 {
 public:
-	void Initialize();
-	void Uninitialize();
+
+	void Uninitialize() const;
     void Perform(PCWSTR pwszTemplateName, PCWSTR pwszRequester, PCWSTR pwszFileOut, PCWSTR pwszPassword, PCWSTR pwszEATemplateName);
     ~EnrollOnBehalfOf();
-	private:
+private:
 	HRESULT hr = S_OK;
+    void Initialize(PCWSTR pwszTemplateName, PCWSTR pwszRequester, PCWSTR pwszFileOut, PCWSTR pwszPassword, PCWSTR pwszEATemplateName);
     bool fCoInit = false;
-    IX509Enrollment* pEnroll = NULL; 
-    IX509CertificateRequest* pRequest = NULL;
-    IX509CertificateRequest* pInnerRequest = NULL;
-    IX509CertificateRequestPkcs10* pPkcs10 = NULL;
-    IX509CertificateRequestCmc* pCmc = NULL;
-    IX509PrivateKey *pKey = NULL;
-    ISignerCertificate* pSignerCertificate = NULL;
-    ISignerCertificates* pSignerCertificates = NULL;
-    HCERTSTORE hStore = NULL;
-    CERT_CONTEXT const *pCert = NULL;
-    CERT_CONTEXT const *pCertContext = NULL;
-    PCWSTR pwszTemplateName; //
-    PCWSTR pwszRequester;
-    PCWSTR pwszFileOut;
-    PCWSTR pwszPassword;
+    IX509Enrollment* pEnroll = nullptr; 
+    IX509CertificateRequest* pRequest = nullptr;
+    IX509CertificateRequest* pInnerRequest = nullptr;
+    IX509CertificateRequestPkcs10* pPkcs10 = nullptr;
+    IX509CertificateRequestCmc* pCmc = nullptr;
+    IX509PrivateKey *pKey = nullptr;
+    ISignerCertificate* pSignerCertificate = nullptr;
+    ISignerCertificates* pSignerCertificates = nullptr;
+    HCERTSTORE hStore = nullptr;
+    CERT_CONTEXT const *pCert = nullptr;
+    CERT_CONTEXT const *pCertContext = nullptr;
+    PCWSTR pwszTemplateName = nullptr; //
+    PCWSTR pwszRequester = nullptr;
+    PCWSTR pwszFileOut = nullptr;
+    PCWSTR pwszPassword = nullptr;
     PCWSTR pwszEATemplateName = L"EnrollmentAgent";
-    BSTR strTemplateName = NULL;
-    BSTR strRequester = NULL;
-    BSTR strEACert = NULL;
-    BSTR strCert = NULL;
-    BSTR strPFX = NULL;
-    BSTR strPassword = NULL;
+    BSTR strTemplateName = nullptr;
+    BSTR strRequester = nullptr;
+    BSTR strEACert = nullptr;
+    BSTR strCert = nullptr;
+    BSTR strPFX = nullptr;
+    BSTR strPassword = nullptr;
 };
 
